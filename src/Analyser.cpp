@@ -47,6 +47,7 @@ void tdw::Analyser::printDependencyTree(const Include& _sourceFile, const path_t
     using namespace std::filesystem;
 
     const auto parentPath = findIncludeParentPath(_sourceFile, _currentPath, _includePaths);
+
     if(_sourceFile.path.is_relative()) {
         printIncludeBranchRecord(_sourceFile.path, _depth, !parentPath.empty());
     } else {
@@ -54,12 +55,15 @@ void tdw::Analyser::printDependencyTree(const Include& _sourceFile, const path_t
     }
 
     if(!parentPath.empty()) {
-        const auto fullPath = parentPath / _sourceFile.path;
-        const auto includes = getIncludes(fullPath);
+        const auto filePath = parentPath / _sourceFile.path;
+
+        // For each file the search should happen relative to the directory it is in
+        const auto directoryPath = filePath.parent_path();
+        const auto includes = getIncludes(filePath);
         for(const auto& include : includes) {
-            const auto counterKey = std::make_pair(_sourceFile.path, parentPath);
+            const auto counterKey = std::make_pair(include.path, directoryPath);
             _includeCounter[counterKey]++;
-            printDependencyTree(include, fullPath.parent_path(), _includePaths, _includeCounter, _depth + depthStep);
+            printDependencyTree(include, directoryPath, _includePaths, _includeCounter, _depth + depthStep);
         }
     }
 }
@@ -97,7 +101,6 @@ tdw::Analyser::Analyser(const path_type& _path) : path{ std::filesystem::canonic
 
     source_files_type tmp;
     for(const auto& entry : recursive_directory_iterator(path)) {
-
         // Copies the reference value (`.extension()` returns a temporary, while `native()` returns a reference to the content of it)
         const auto extension = path_type::string_type(entry.path().extension().native());
         const auto comparisonResult = (".hpp" == extension) || (".cpp" == extension);
@@ -106,7 +109,7 @@ tdw::Analyser::Analyser(const path_type& _path) : path{ std::filesystem::canonic
             continue;
         }
 
-        tmp.emplace( entry.path(), Include::Type::q_char);
+        tmp.emplace(entry.path(), Include::Type::q_char);
     }
     sourceFiles = std::move(tmp);
 }
@@ -119,9 +122,15 @@ void tdw::Analyser::printDependencyTree(const std::vector<path_type>& _includePa
     include_counter_map_type includesCounter;
 
     for(const auto& sourceFile : sourceFiles) {
-        const auto counterKey = std::make_pair(sourceFile.path, path);
+        const auto counterKey = std::make_pair(relative(sourceFile.path, path), path);
         includesCounter[counterKey] += 0; // initializes counter for the source in case it doesn't exist
         printDependencyTree(sourceFile, path, _includePaths, includesCounter);
+    }
+
+    std::cout << std::endl;
+    
+    for(const auto& counter : includesCounter) {
+        std::cout << counter.first.first << " " << counter.second << std::endl;
     }
 }
 #pragma endregion
