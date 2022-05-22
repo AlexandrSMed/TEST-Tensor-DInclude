@@ -4,7 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <regex>
-#include <map>
+#include <set>
 
 #pragma region Static
 std::vector<tdw::Analyser::Include> tdw::Analyser::getIncludes(const path_type& _path) {
@@ -129,7 +129,19 @@ void tdw::Analyser::printDependencyTree(const std::vector<path_type>& _includePa
 
     std::cout << std::endl;
     
+    const auto counterLess = [&includesCounter](const include_counter_map_type::value_type& left, const include_counter_map_type::value_type& right) {
+        if(left.second == right.second) {
+            return includesCounter.key_comp()(left.first, right.first);
+        } else {
+            return left.second > right.second;
+        }
+    };
+    std::set<include_counter_map_type::value_type, decltype(counterLess)> sortedIncludeCounters{counterLess};
     for(const auto& counter : includesCounter) {
+        sortedIncludeCounters.insert(counter);
+    }
+
+    for(const auto& counter : sortedIncludeCounters) {
         std::cout << counter.first.first << " " << counter.second << std::endl;
     }
 }
