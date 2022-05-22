@@ -1,12 +1,13 @@
 #pragma once
 
 #include <string>
+#include <sstream>
 #include <filesystem>
 #include <type_traits>
 
 namespace tdw::utils {
 
-    inline void directoryArgumentAssert(const std::filesystem::path& _path, const std::string& message = std::string{"The path provided is not a directory"}) {
+    inline void directoryArgumentAssert(const std::filesystem::path& _path, const std::string& message = std::string{}) {
 
         using namespace std::filesystem;
 
@@ -14,7 +15,13 @@ namespace tdw::utils {
             return;
         }
         
-        throw std::invalid_argument(message);
+        if (message.empty()) {
+            std::ostringstream osstr;
+            osstr << "Could not find a directory with name: " << _path;
+            throw std::invalid_argument(osstr.str());
+        } else {
+            throw std::invalid_argument(message);
+        }
     }
 
     // The template is only to ignore the discarded parts of constexpr check. Please do not alter its arguments

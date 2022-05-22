@@ -4,8 +4,10 @@
 #include <iostream>
 #include <fstream>
 #include <regex>
+#include <map>
 
-std::vector<tdw::Analyser::Include> tdw::Analyser::getIncludes(const path_class& _path) {
+#pragma region Static
+std::vector<tdw::Analyser::Include> tdw::Analyser::getIncludes(const path_type& _path) {
     std::ifstream ifs;
     // Makes the `ifstream` throw an exception in case it fails to open the file
     ifs.exceptions(ifs.exceptions() | std::ios::failbit);
@@ -23,50 +25,103 @@ std::vector<tdw::Analyser::Include> tdw::Analyser::getIncludes(const path_class&
     constexpr auto bracketMatchIndex = static_cast<std::smatch::size_type>(4);
 
     std::vector<Include> includes;
-    for (std::sregex_iterator it(filteredFileData.cbegin(), filteredFileData.end(), includeRegex); it != std::sregex_iterator{}; ++it) {
+    for(std::sregex_iterator it(filteredFileData.cbegin(), filteredFileData.end(), includeRegex); it != std::sregex_iterator{}; ++it) {
         const auto& match = *it;
 
-        if (match.size() <= std::max(quoteMatchIndex, bracketMatchIndex)) {
+        if(match.size() <= std::max(quoteMatchIndex, bracketMatchIndex)) {
             continue;
         }
 
-        if (match[quoteMatchIndex].matched) {
-            includes.emplace_back(match.str(quoteMatchIndex), true);
-        } else if (match[bracketMatchIndex].matched) {
-            includes.emplace_back(match.str(bracketMatchIndex), false);
+        if(match[quoteMatchIndex].matched) {
+            includes.emplace_back(match.str(quoteMatchIndex), Include::Type::q_char);
+        } else if(match[bracketMatchIndex].matched) {
+            includes.emplace_back(match.str(bracketMatchIndex), Include::Type::h_char);
         }
     }
 
     return includes;
 }
 
-tdw::Analyser::Analyser(const path_class& _path) : path{ std::filesystem::absolute(_path) } {
+void tdw::Analyser::printDependencyTree(const Include& _sourceFile, const path_type _currentPath, const std::vector<path_type>& _includePaths, include_counter_map_type& _includeCounter, unsigned _depth) {
+    constexpr auto depthStep = static_cast<decltype(_depth)>(2);
+    using namespace std::filesystem;
+
+    const auto parentPath = findIncludeParentPath(_sourceFile, _currentPath, _includePaths);
+    if(_sourceFile.path.is_relative()) {
+        printIncludeBranchRecord(_sourceFile.path, _depth, !parentPath.empty());
+    } else {
+        printIncludeBranchRecord(_sourceFile.path, _depth, !parentPath.empty(), parentPath);
+    }
+
+    if(!parentPath.empty()) {
+        const auto fullPath = parentPath / _sourceFile.path;
+        const auto includes = getIncludes(fullPath);
+        for(const auto& include : includes) {
+            const auto counterKey = std::make_pair(_sourceFile.path, parentPath);
+            _includeCounter[counterKey]++;
+            printDependencyTree(include, fullPath.parent_path(), _includePaths, _includeCounter, _depth + depthStep);
+        }
+    }
+}
+
+tdw::Analyser::path_type tdw::Analyser::findIncludeParentPath(const Include& _sourceFile, const path_type _currentPath, const std::vector<path_type>& _includePaths) {
+    using namespace std::filesystem;
+
+    // Follows C standard "6.10.2 Source file inclusion" - http://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf#page=182
+    if(_sourceFile.type == Include::Type::q_char) {
+        const auto searchPath = _currentPath / _sourceFile.path;
+
+        if(is_regular_file(searchPath)) {
+            return _currentPath;
+        }
+    }
+
+    for(const auto& includePath : _includePaths) {
+        const auto searchPath = includePath / _sourceFile.path;
+        if(is_regular_file(searchPath)) {
+            return includePath;
+        }
+    }
+
+    return path_type();
+}
+
+#pragma endregion
+
+#pragma region Lifecycle
+tdw::Analyser::Analyser(const path_type& _path) : path{ std::filesystem::canonical(_path) } {
     using namespace std::filesystem;
     using utils::operator==;
 
-    utils::directoryArgumentAssert(path, "The source path is not a directory");
+    utils::directoryArgumentAssert(_path);
 
-    std::unordered_map<path_class, std::vector<Include>> tmp;
-    for (const auto& entry : recursive_directory_iterator(path)) {
-        const auto& extension = entry.path().extension().native();
+    source_files_type tmp;
+    for(const auto& entry : recursive_directory_iterator(path)) {
 
+        // Copies the reference value (`.extension()` returns a temporary, while `native()` returns a reference to the content of it)
+        const auto extension = path_type::string_type(entry.path().extension().native());
         const auto comparisonResult = (".hpp" == extension) || (".cpp" == extension);
-        if (!entry.is_regular_file() || !comparisonResult) {
+        if(!entry.is_regular_file() || !comparisonResult) {
             // Ignore folders, irregular and irrelevant files
             continue;
         }
 
-        tmp[absolute(entry.path())] = getIncludes(entry.path());
+        tmp.emplace( entry.path(), Include::Type::q_char);
     }
     sourceFiles = std::move(tmp);
 }
+#pragma endregion
 
-
-void tdw::Analyser::printDependencyTree(std::initializer_list<path_class> _headerPaths) const {
+#pragma region Actions
+void tdw::Analyser::printDependencyTree(const std::vector<path_type>& _includePaths) const {
     using namespace std::filesystem;
 
-    for (const auto& source : sourceFiles) {
-        std::cout << relative(source.first, path) << std::endl;
-    }
+    include_counter_map_type includesCounter;
 
+    for(const auto& sourceFile : sourceFiles) {
+        const auto counterKey = std::make_pair(sourceFile.path, path);
+        includesCounter[counterKey] += 0; // initializes counter for the source in case it doesn't exist
+        printDependencyTree(sourceFile, path, _includePaths, includesCounter);
+    }
 }
+#pragma endregion
