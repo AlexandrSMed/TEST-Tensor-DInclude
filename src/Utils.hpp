@@ -5,6 +5,9 @@
 #include <variant>
 #include <unordered_set>
 
+#include <string>
+#include <vector>
+
 namespace tdw::utils {
 
     inline void directoryArgumentAssert(const std::filesystem::path& _path, const std::string& message = std::string{}) {

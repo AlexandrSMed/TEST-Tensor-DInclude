@@ -13,19 +13,20 @@ std::vector<tdw::Analyser::Include> tdw::Analyser::getIncludes(const path_type& 
     ifs.exceptions(ifs.exceptions() | std::ios::failbit);
     ifs.open(_path);
     using if_stream_buf_it = typename std::istreambuf_iterator<std::ifstream::char_type>;
-    const std::string fileData{ (if_stream_buf_it(ifs)), if_stream_buf_it() };
+    const std::string fileData{ {if_stream_buf_it{ifs}}, if_stream_buf_it{} };
     ifs.close();
 
-    // TODO: fix for scenario of multline comment/raw str that extends to end of string https://regex101.com/r/AnnCDl/1
-    const std::regex noiseRegex{ R"reg(((?:R"(.*)\()(?:[\s\S\n]*?)(?:\)\2")|(?:\/\*)(?:[\s\S\n]*?)(?:\*\/)))reg" };
+    // https://regex101.com/r/8IegEz/2
+    const std::regex noiseRegex{ R"reg(((?:(?:R"(.*)\()(?:[\s\S\n]*?)(?:\)\2")|(?:R"(.*)\()(?:[\s\S\n]*))|(?:(?:\/\*)(?:[\s\S\n]*?)(?:\*\/)|(?:\/\*)(?:[\s\S\n]*))))reg" };
     const auto filteredFileData = std::regex_replace(fileData, noiseRegex, "");
 
-    const std::regex includeRegex{ R"reg(^[^\S\r\n]*#[^\S\r\n]*include[^\S\r\n]*("([\w.\/\\]+(\.hpp|\.cpp))"|\<([\w.\/\\]+(\.hpp|\.cpp))\>))reg" };
+    // https://regex101.com/r/sd5Gpb/1
+    const std::regex includeRegex{ R"reg((?:^|\n)[^\S\r\n]*#[^\S\r\n]*include[^\S\r\n]*("([\w.\/\\]+(\.hpp|\.cpp))"|\<([\w.\/\\]+(\.hpp|\.cpp))\>))reg" };
     constexpr auto quoteMatchIndex = static_cast<std::smatch::size_type>(2);
     constexpr auto bracketMatchIndex = static_cast<std::smatch::size_type>(4);
 
     std::vector<Include> includes;
-    for(std::sregex_iterator it(filteredFileData.cbegin(), filteredFileData.end(), includeRegex); it != std::sregex_iterator{}; ++it) {
+    for(std::sregex_iterator it{ filteredFileData.cbegin(), filteredFileData.end(), includeRegex }; it != std::sregex_iterator{}; ++it) {
         const auto& match = *it;
 
         if(match.size() <= std::max(quoteMatchIndex, bracketMatchIndex)) {

@@ -1,6 +1,8 @@
 #include "Utils.hpp"
+#include <filesystem>
 #include <unordered_set>
 #include <regex>
+#include <stdexcept>
 
 std::vector<tdw::utils::argument_type> tdw::utils::readArguments(int argc, char* argv[], argument_set_type&& optionsWhiteList) {
 
@@ -18,16 +20,16 @@ std::vector<tdw::utils::argument_type> tdw::utils::readArguments(int argc, char*
             
             if(option.acceptsArgument) {
                 std::cmatch match;
-                if(std::regex_search(argv[i], match, std::regex(optionPrefix + optionArgument)) && match[2].matched) {
+                if(std::regex_search(argv[i], match, std::regex{ optionPrefix + optionArgument }) && match[2].matched) {
                     args.emplace_back(std::make_pair(option, match[2].str()));
                     found = true;
                     break;
-                } else if(std::regex_match(argv[i], std::regex(optionPrefix)) && (i < argc - 1)) {
+                } else if(std::regex_match(argv[i], std::regex{ optionPrefix }) && (i < argc - 1)) {
                     const auto argument = argv[++i];
                     args.emplace_back(std::make_pair(option, argument));
                     found = true;
                 }
-            } else if(std::regex_match(argv[i], std::regex(optionPrefix))) {
+            } else if(std::regex_match(argv[i], std::regex{ optionPrefix })) {
                 args.emplace_back(std::make_pair(option, ""));
                 found = true;
             }
@@ -45,16 +47,21 @@ std::vector<tdw::utils::argument_type> tdw::utils::readArguments(int argc, char*
 
 void tdw::utils::assertCompliantArguments(const std::vector<argument_type>& arguments) {
     if(!arguments.size()) {
-        throw std::invalid_argument("Please specify a path to the source files");
+        throw std::invalid_argument{ "Please specify a path to the source files" };
     }
 
     if(!std::holds_alternative<std::string>(arguments[0])) {
-        throw std::invalid_argument("The first argument must be a path");
+        throw std::invalid_argument{ "The first argument must be a path" };
     }
 
     for(auto it = arguments.cbegin() + 1; it != arguments.cend(); ++it) {
         if(!std::holds_alternative<option_type>(*it)) {
-            throw std::invalid_argument("Could not read the include path argument: \"" + std::get<std::string>(*it) + "\"");
+            throw std::invalid_argument{ "Could not read the include path argument: \"" + std::get<std::string>(*it) + "\"" };
+        }
+        
+        const auto& path = std::get<option_type>(*it).second;
+        if(!std::filesystem::is_directory(path)) {
+            throw std::invalid_argument{ "Include option should refer to an existing directory: \"" + path + "\"" };
         }
     }
 }

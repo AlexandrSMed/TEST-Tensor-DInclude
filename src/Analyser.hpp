@@ -35,7 +35,7 @@ namespace tdw {
         };
         struct IncludeMapKeyHash {
             size_t operator()(const include_map_key_type& _include) const {
-                return std::hash<path_type>()(weakly_canonical(_include.second / _include.first));
+                return std::hash<path_type::string_type>()(weakly_canonical(_include.second / _include.first).native());
             }
         };
         struct IncludeMapKeyEqualTo {
@@ -60,7 +60,7 @@ namespace tdw {
 
             struct HashFunction {
                 size_t operator()(const Include& _include) const {
-                    const auto pathHash = std::hash<path_type>()(_include.path);
+                    const auto pathHash = std::hash<path_type::string_type>()(_include.path.native());
                     const auto typeHash = std::hash<Type>()(_include.type) << 1;
                     return pathHash ^ typeHash;
                 }
@@ -101,9 +101,11 @@ namespace tdw {
                 std::cout << std::string(_depth, '_'); // Underscorde instead of dot for the better distinctions with special paths ("." and "..")
             }
             
+            // avoid using "make_preferred()", to keep the output consistent with include directive
             if(relative_to_path.empty()) {
-                std::cout << _path; // TODO: add rationale behind not using "make_preferred()", i.e. to keep the output consistent with include directive
+                std::cout << _path;
             } else {
+
                 std::cout << std::filesystem::relative(_path, relative_to_path);
             }
             
