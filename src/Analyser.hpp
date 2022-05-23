@@ -65,7 +65,20 @@ namespace tdw {
          * @return `path_type` the source was found in or empty `path_type` it search fails
         */
         static path_type findIncludeParentPath(const Include& _sourceFile, const path_type _currentPath, const std::vector<path_type>& _includePaths);
-        static void printDependencyTree(const Include& _sourceFile, const path_type _currentPath, const std::vector<path_type>& _includePaths, include_counter_map_type& _includeCounter, unsigned _depth = 0);
+        /**
+         * @brief Prints dependency tree for the given `Include` argument with respect to current and include paths.
+         * @param _sourceFile - the include statement
+         * @param _currentPath - the relative "current" directore search needs to be done in relation to
+         * @param _includePaths - include directories to look for includes in
+         * @param _includeCounter - a collection keeping track of includes number for the given argument
+         * @param _depth - current depth of include chain
+         * @return `path_type` of the directory the given include was found in. The path is empty, if its parent was not found
+        */
+        static path_type printDependencyTree(const Include& _sourceFile,
+                                             const path_type _currentPath,
+                                             const std::vector<path_type>& _includePaths,
+                                             include_counter_map_type& _includeCounter,
+                                             unsigned _depth = 0);
         static inline void printIncludeBranchRecord(path_type _path, unsigned _depth, bool _found, path_type relative_to_path = path_type{}) {
             if(_depth) {
                 std::cout << std::string(_depth, '_'); // Underscorde instead of dot for the better distinctions with special paths ("." and "..")

@@ -42,7 +42,11 @@ std::vector<tdw::Analyser::Include> tdw::Analyser::getIncludes(const path_type& 
     return includes;
 }
 
-void tdw::Analyser::printDependencyTree(const Include& _sourceFile, const path_type _currentPath, const std::vector<path_type>& _includePaths, include_counter_map_type& _includeCounter, unsigned _depth) {
+tdw::Analyser::path_type tdw::Analyser::printDependencyTree(const Include& _sourceFile,
+                                        const path_type _currentPath,
+                                        const std::vector<path_type>& _includePaths,
+                                        include_counter_map_type& _includeCounter,
+                                        unsigned _depth) {
     constexpr auto depthStep = static_cast<decltype(_depth)>(2);
     using namespace std::filesystem;
 
@@ -61,11 +65,13 @@ void tdw::Analyser::printDependencyTree(const Include& _sourceFile, const path_t
         const auto directoryPath = filePath.parent_path();
         const auto includes = getIncludes(filePath);
         for(const auto& include : includes) {
-            const auto counterKey = std::make_pair(include.path, directoryPath);
+            const auto includeParentPath = printDependencyTree(include, directoryPath, _includePaths, _includeCounter, _depth + depthStep);
+            const auto counterKey = std::make_pair(include.path, includeParentPath);
             _includeCounter[counterKey]++;
-            printDependencyTree(include, directoryPath, _includePaths, _includeCounter, _depth + depthStep);
         }
     }
+
+    return parentPath;
 }
 
 tdw::Analyser::path_type tdw::Analyser::findIncludeParentPath(const Include& _sourceFile, const path_type _currentPath, const std::vector<path_type>& _includePaths) {
