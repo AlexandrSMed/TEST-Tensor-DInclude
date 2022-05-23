@@ -8,9 +8,10 @@
 namespace tdw {
 
     class Analyser {
-
+    public:
         using path_type = typename std::filesystem::path;
 
+    private:
         /**
          * @brief `first` of the pair denotes the presentational part (which is used to print the entity in the user-friendly manner)
          * I.e. it should be recognizable and kept in the form originally found in the source files, if the record originates from within
@@ -84,7 +85,7 @@ namespace tdw {
          * @param _currentPath - the relative "current" directore search needs to be done in relation to
          * @param _includePaths - include directories to look for includes in
          * @param _includeCounter - a collection keeping track of includes number for the given argument
-         * @param _includeChainSet - a collection keeping track of the current include chain
+         * @param _includeChain - a collection keeping track of the current include chain
          * @param _depth - current depth of include chain
          * @return `path_type` of the directory the given include was found in. The path is empty, if its parent was not found
         */

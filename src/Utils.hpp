@@ -1,9 +1,9 @@
 #pragma once
 
-#include <string>
 #include <sstream>
 #include <filesystem>
-#include <type_traits>
+#include <variant>
+#include <unordered_set>
 
 namespace tdw::utils {
 
@@ -44,5 +44,36 @@ namespace tdw::utils {
             return true;
         }
     }
+
+    struct CommandLineOption {
+        std::string shortVersion;
+        std::string longVersion;
+        bool acceptsArgument;
+
+        struct HashFunction {
+            size_t operator()(const CommandLineOption& _option) const {
+                const auto shortHash = std::hash<std::string>()(_option.shortVersion);
+                const auto longHash = std::hash<std::string>()(_option.longVersion);
+                const auto acceptsHash = static_cast<size_t>(_option.acceptsArgument) << 1;
+                return shortHash ^ longHash ^ acceptsHash;
+            }
+        };
+
+        struct EqualTo {
+            bool operator()(const CommandLineOption& _left, const CommandLineOption& _right) const {
+                return std::operator==(_left.shortVersion, _right.shortVersion) &&
+                    std::operator==(_left.longVersion, _right.longVersion) &&
+                    (_left.acceptsArgument == _right.acceptsArgument);
+            }
+        };
+    };
+    using option_type = typename std::pair<CommandLineOption, std::string>;
+    using argument_type = typename std::variant<option_type, std::string>;
+    using argument_set_type = typename std::unordered_set<CommandLineOption, CommandLineOption::HashFunction, CommandLineOption::EqualTo>;
+    std::vector<argument_type> readArguments(int argc, char* argv[], argument_set_type&& optionsWhiteList = argument_set_type{
+        { "I", "include-directory", true }
+    });
+
+    void assertCompliantArguments(const std::vector<argument_type>& arguments);
 
 }

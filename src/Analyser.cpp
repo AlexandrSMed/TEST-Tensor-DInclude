@@ -134,7 +134,8 @@ void tdw::Analyser::printDependencyTree(const std::vector<path_type>& _includePa
     for(const auto& sourceFile : sourceFiles) {
         const auto counterKey = std::make_pair(relative(sourceFile.path, path), path);
         includesCounter[counterKey] += 0; // initializes counter for the source in case it doesn't exist
-        printDependencyTree(sourceFile, path, _includePaths, includesCounter, include_chain_set_type{});
+        include_chain_set_type includeChain;
+        printDependencyTree(sourceFile, path, _includePaths, includesCounter, includeChain);
     }
 
     std::cout << std::endl;

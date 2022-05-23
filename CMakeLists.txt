@@ -1,6 +1,7 @@
 ﻿cmake_minimum_required (VERSION 3.18)
 
 set(PROJ_NAME DependenciesAnalyser)
+set(EXEC_NAME dinclude)
 set(LOAD_TEST_DATA true)
 
 project(${PROJ_NAME})
@@ -13,9 +14,9 @@ list(APPEND SOURCE_FILES
     src/Analyser.cpp
     src/Utils.cpp)
 
-add_executable(${PROJ_NAME} ${SOURCE_FILES})
+add_executable(${EXEC_NAME} ${SOURCE_FILES})
 
-set_property(TARGET ${PROJ_NAME} PROPERTY CXX_STANDARD 17)
+set_property(TARGET ${EXEC_NAME} PROPERTY CXX_STANDARD 17)
 if (MSVC) 
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJ_NAME})
 endif()
@@ -34,14 +35,14 @@ if (LOAD_TEST_DATA)
         COMMAND ${CMAKE_COMMAND} -E make_directory ${TEST_DATA_DIR}
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${TEST_DATA_SOURCE_DIR} ${TEST_DATA_DIR}
     )
-    add_dependencies(${PROJ_NAME} copy_assets)
+    add_dependencies(${EXEC_NAME} copy_assets)
 endif()
 
 # =======================================================#
 # Compiler Settings
 # =======================================================#
 
-target_compile_options(${PROJ_NAME} PRIVATE
+target_compile_options(${EXEC_NAME} PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:-Zc:__cplusplus -W4 -wd5045 -analyze>
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wno-c++98-compat -Winline>
 )
