@@ -32,7 +32,20 @@ namespace tdw {
                 return _left.first < _right.first;
             }
         };
+        struct IncludeMapKeyHash {
+            size_t operator()(const include_map_key_type& _include) const {
+                return std::hash<path_type>()(weakly_canonical(_include.second / _include.first));
+            }
+        };
+        struct IncludeMapKeyEqualTo {
+            bool operator()(const include_map_key_type& _left, const include_map_key_type& _right) const {
+                const auto leftPath = weakly_canonical(_left.second / _left.first);
+                const auto rightPath = weakly_canonical(_right.second / _right.first);
+                return leftPath == rightPath;
+            }
+        };
         using include_counter_map_type = std::map<include_map_key_type, unsigned, IncludeMapKeyLess>;
+        using include_chain_set_type = std::unordered_set<include_map_key_type, IncludeMapKeyHash, IncludeMapKeyEqualTo>;
 
         struct Include {
             enum class Type {
@@ -71,6 +84,7 @@ namespace tdw {
          * @param _currentPath - the relative "current" directore search needs to be done in relation to
          * @param _includePaths - include directories to look for includes in
          * @param _includeCounter - a collection keeping track of includes number for the given argument
+         * @param _includeChainSet - a collection keeping track of the current include chain
          * @param _depth - current depth of include chain
          * @return `path_type` of the directory the given include was found in. The path is empty, if its parent was not found
         */
@@ -78,8 +92,10 @@ namespace tdw {
                                              const path_type _currentPath,
                                              const std::vector<path_type>& _includePaths,
                                              include_counter_map_type& _includeCounter,
+                                             include_chain_set_type& _includeChain,
                                              unsigned _depth = 0);
-        static inline void printIncludeBranchRecord(path_type _path, unsigned _depth, bool _found, path_type relative_to_path = path_type{}) {
+
+        static inline void printIncludeBranchRecord(path_type _path, unsigned _depth, bool _found, bool _cycleInclude, path_type relative_to_path = path_type{}) {
             if(_depth) {
                 std::cout << std::string(_depth, '_'); // Underscorde instead of dot for the better distinctions with special paths ("." and "..")
             }
@@ -92,6 +108,10 @@ namespace tdw {
             
             if(!_found) {
                 std::cout << "(!)";
+            }
+
+            if(_cycleInclude) {
+                std::cout << "(~)";
             }
             std::cout << std::endl;
         }

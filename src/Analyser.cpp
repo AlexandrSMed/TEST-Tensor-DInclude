@@ -46,26 +46,30 @@ tdw::Analyser::path_type tdw::Analyser::printDependencyTree(const Include& _sour
                                         const path_type _currentPath,
                                         const std::vector<path_type>& _includePaths,
                                         include_counter_map_type& _includeCounter,
+                                        include_chain_set_type& _includeChain,
                                         unsigned _depth) {
     constexpr auto depthStep = static_cast<decltype(_depth)>(2);
     using namespace std::filesystem;
 
     const auto parentPath = findIncludeParentPath(_sourceFile, _currentPath, _includePaths);
-
+    const auto cycleInclude = !_includeChain.insert(std::make_pair(_sourceFile.path, parentPath)).second;
     if(_sourceFile.path.is_relative()) {
-        printIncludeBranchRecord(_sourceFile.path, _depth, !parentPath.empty());
+        printIncludeBranchRecord(_sourceFile.path, _depth, !parentPath.empty(), cycleInclude);
     } else {
-        printIncludeBranchRecord(_sourceFile.path, _depth, !parentPath.empty(), parentPath);
+        printIncludeBranchRecord(_sourceFile.path, _depth, !parentPath.empty(), cycleInclude, parentPath);
     }
 
-    if(!parentPath.empty()) {
+    if(!parentPath.empty() && !cycleInclude) {
         const auto filePath = parentPath / _sourceFile.path;
 
         // For each file the search should happen relative to the directory it is in
         const auto directoryPath = filePath.parent_path();
         const auto includes = getIncludes(filePath);
         for(const auto& include : includes) {
-            const auto includeParentPath = printDependencyTree(include, directoryPath, _includePaths, _includeCounter, _depth + depthStep);
+            auto subIncludeChain{ _includeChain }; // each include branch needs to track it's chain independently
+            const auto includeParentPath = printDependencyTree(
+                include, directoryPath, _includePaths, _includeCounter, subIncludeChain, _depth + depthStep);
+            // Cycle includes still count, but nothing after it (because it gets printed and needs to be consistent)
             const auto counterKey = std::make_pair(include.path, includeParentPath);
             _includeCounter[counterKey]++;
         }
@@ -130,7 +134,7 @@ void tdw::Analyser::printDependencyTree(const std::vector<path_type>& _includePa
     for(const auto& sourceFile : sourceFiles) {
         const auto counterKey = std::make_pair(relative(sourceFile.path, path), path);
         includesCounter[counterKey] += 0; // initializes counter for the source in case it doesn't exist
-        printDependencyTree(sourceFile, path, _includePaths, includesCounter);
+        printDependencyTree(sourceFile, path, _includePaths, includesCounter, include_chain_set_type{});
     }
 
     std::cout << std::endl;
